@@ -97,6 +97,20 @@ frameMain::frameMain() :
 	buttonStart->Bind(wxEVT_BUTTON, &frameMain::startSim, this);
 
 	ctrlSizer->Add(buttonStart, 0, wxEXPAND | wxALL, FromDIP(10));
+
+	buttonViewResult = new wxButton(this, wxID_ANY, "View result", wxDefaultPosition, wxSize(1, 50));
+	buttonViewResult->SetFont(defaultFont);
+	buttonViewResult->Bind(wxEVT_BUTTON, [this] (wxCommandEvent&){
+		(new frameResult(waitTime, turnTime, this))->Show();
+		});
+
+	ctrlSizer->Add(buttonViewResult, 0, wxEXPAND | wxALL, FromDIP(5));
+
+	txQueue = new wxStaticText(this, wxID_ANY, "Processes in queue:\n\n\n\n", wxDefaultPosition, wxDefaultSize);
+	txQueue->SetFont(defaultFont);
+
+	ctrlSizer->Add(txQueue, 0, wxEXPAND | wxALL, FromDIP(5));
+
 	mainSizer->Add(ctrlSizer, 0, wxALL, FromDIP(0));
 	// End of ctrl
 
@@ -113,7 +127,7 @@ frameMain::frameMain() :
 		wxGA_HORIZONTAL | wxGA_SMOOTH);
 
 	// Log
-	txLog = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(1, 400),
+	txLog = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(1, 450),
 		wxTE_READONLY | wxTE_MULTILINE | wxTE_RICH2 | wxNO_BORDER | wxTE_NO_VSCROLL);
 	txLog->Bind(wxEVT_MOUSEWHEEL, [this](wxMouseEvent& event) {
 		txLog->ScrollLines((event.GetWheelRotation() > 0) ? -5 : 5);
@@ -131,7 +145,7 @@ frameMain::frameMain() :
 	SetSizer(mainSizer);
 
 	SetPosition(FromDIP(wxPoint(100, 100)));
-	SetSize(FromDIP(wxSize(1000, 450)));
+	SetSize(FromDIP(wxSize(1000, 500)));
 
 	gaugeTimer.Bind(wxEVT_TIMER, &frameMain::onTimerTick, this);
 }
@@ -141,11 +155,6 @@ frameMain::~frameMain()
 
 void frameMain::startSim(wxCommandEvent& event)
 {
-	buttonStart->Enable(false);
-	txLog->Clear();
-
-	logAppend("Starting simulation");
-
 	long valP1Burst = 0;
 	long valP1Arriv = 0;
 	long valP2Burst = 0;
@@ -157,20 +166,24 @@ void frameMain::startSim(wxCommandEvent& event)
 
 	if (entryP1Burst->GetValue().ToLong(&valP1Burst)
 		&& entryP1Arriv->GetValue().ToLong(&valP1Arriv)
-		&& valP1Arriv > 0 && valP1Burst > 0
+		&& valP1Arriv >= 0 && valP1Burst >= 0
 
 		&& entryP2Burst->GetValue().ToLong(&valP2Burst)
 		&& entryP2Arriv->GetValue().ToLong(&valP2Arriv)
-		&& valP2Arriv > 0 && valP2Burst > 0
+		&& valP2Arriv >= 0 && valP2Burst >= 0
 
 		&& entryP3Burst->GetValue().ToLong(&valP3Burst)
 		&& entryP3Arriv->GetValue().ToLong(&valP3Arriv)
-		&& valP3Arriv > 0 && valP3Burst > 0
+		&& valP3Arriv >= 0 && valP3Burst >= 0
 
 		&& entryP4Burst->GetValue().ToLong(&valP4Burst)
 		&& entryP4Arriv->GetValue().ToLong(&valP4Arriv)
-		&& valP4Arriv > 0 && valP4Burst > 0 || true // FOR DEBUGGING, REMOVE LATER
-		) {
+		&& valP4Arriv >= 0 && valP4Burst >= 0) {
+
+		buttonStart->Enable(false);
+		txLog->Clear();
+
+		logAppend("Starting simulation");
 
 		// Calculate
 		std::vector<Proc> processes = {
@@ -187,6 +200,7 @@ void frameMain::startSim(wxCommandEvent& event)
 		std::vector<ProcEvent> procEvent;
 		
 		int procEnded = 0;
+		int procInQueue = 0;
 		while (procEnded < 4) {
 			for (int i = 0; i < processes.size(); i++) {
 				if (currentTime == processes.at(i).start) {
@@ -201,6 +215,8 @@ void frameMain::startSim(wxCommandEvent& event)
 			// End a process
 			if (currentProc && (currentProc->start + currentProc->duration) <= currentTime) {
 				procEvent.push_back({ 0, currentProc->ID, currentTime});
+				waitTime[currentProc->ID - 1] = currentProc->waitTime;
+				turnTime[currentProc->ID - 1] = currentTime - currentProc->firstArrTime;
 				currentProc = nullptr;
 				procEnded++;
 			}
@@ -217,6 +233,7 @@ void frameMain::startSim(wxCommandEvent& event)
 
 				currentProc = fasterProc;
 				currentProc->start = currentTime;
+				if (currentProc->firstArrTime == -1) currentProc->firstArrTime = currentTime;
 				procEvent.push_back({ 1, currentProc->ID, currentTime });
 			}
 
@@ -225,13 +242,20 @@ void frameMain::startSim(wxCommandEvent& event)
 				currentProc = procQueue.back();
 				procQueue.pop_back();
 				currentProc->start = currentTime;
+				if (currentProc->firstArrTime == -1) currentProc->firstArrTime = currentTime;
 				procEvent.push_back({ 1, currentProc->ID, currentTime});
 			}
+
+			// Get processes in queue
+			for (Proc* process : procQueue) {
+				process->waitTime++;
+				procInQueue += pow(2, process->ID - 1);
+			}
+			procEvent.push_back({ 3, procInQueue, currentTime });
+			procInQueue = 0;
 			
 			currentTime++;
 		}
-
-		// processes.push_back({ 9, 1, 1 });
 
 		totalTime = currentTime;
 		milisecElapse = 0;
@@ -254,6 +278,11 @@ void frameMain::startSim(wxCommandEvent& event)
 				case 2:
 					logAppend("Process " + std::to_string(event.ID) + " got swapped out.");
 					break;
+				case 3:
+					txQueue->SetLabel(std::string("Processes in queue: ") + ((event.ID & 1) ? "\nProcess 1" : "")
+																			+ ((event.ID & 2) ? "\nProcess 2" : "")
+																			+ ((event.ID & 4) ? "\nProcess 3" : "")
+																			+ ((event.ID & 8) ? "\nProcess 4" : ""));
 				}
 			}
 			wxGetApp().CallAfter([this] {

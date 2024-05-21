@@ -3,18 +3,21 @@
 #include "App.h"
 #include <chrono>
 #include <thread>
+#include "frameResult.h"
 
 struct Proc {
 	int ID;
 	int start;
 	int duration;
+	int waitTime = 0;
+	int firstArrTime = -1;
 
 	Proc(int _id, int _start, int _dur) : ID(_id), start(_start), duration(_dur) {}
 };
 
 struct ProcEvent {
-	int state; // 0: end, 1: start, 2: swappedout
-	int ID;
+	int state; // 0: end, 1: start, 2: swappedout, 3: queue update
+	int ID; // 1: 1, 2: 2, 3: 4, 4: 8
 	int time;
 };
 
@@ -39,6 +42,9 @@ private:
 	wxCheckBox* checkPreemptive;
 
 	wxButton* buttonStart;
+	wxButton* buttonViewResult;
+
+	wxStaticText* txQueue;
 
 	wxTextCtrl* txLog;
 
@@ -49,6 +55,8 @@ private:
 	wxTimer gaugeTimer;
 	int milisecElapse = 0;
 	long totalTime;
+	std::vector<int> waitTime = { -1, -1, -1, -1 };
+	std::vector<int> turnTime = { -1, -1, -1, -1 };
 
 	// Events
 	void startSim(wxCommandEvent& event);

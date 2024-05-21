@@ -149,10 +149,12 @@
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="frameMain.h" />
+    <ClInclude Include="frameResult.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="frameMain.cpp" />
+    <ClCompile Include="frameResult.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="main.manifest" />
