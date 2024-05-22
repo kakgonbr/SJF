@@ -197,12 +197,16 @@ void frameMain::startSim(wxCommandEvent& event)
 		while (procEnded < 4) {
 			for (int i = 0; i < processes.size(); i++) {
 				if (currentTime == processes.at(i).start) {
-					if (processes.at(i).duration) {
+					if (processes.at(i).duration != 0) {
 						procQueue.push_back(&processes.at(i));
 						processes.at(i).firstArrTime = currentTime;
 					}
 					else
+					{
 						procEnded++;
+						waitTime[processes.at(i).ID - 1] = 0;
+						turnTime[processes.at(i).ID - 1] = 0;
+					}
 				}
 			}
 			
