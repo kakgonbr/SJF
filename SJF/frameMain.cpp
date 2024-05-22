@@ -166,19 +166,19 @@ void frameMain::startSim(wxCommandEvent& event)
 
 	if (entryP1Burst->GetValue().ToLong(&valP1Burst)
 		&& entryP1Arriv->GetValue().ToLong(&valP1Arriv)
-		&& valP1Arriv >= 0 && valP1Burst >= 0
+		&& valP1Arriv >= 0 && valP1Burst > 0
 
 		&& entryP2Burst->GetValue().ToLong(&valP2Burst)
 		&& entryP2Arriv->GetValue().ToLong(&valP2Arriv)
-		&& valP2Arriv >= 0 && valP2Burst >= 0
+		&& valP2Arriv >= 0 && valP2Burst > 0
 
 		&& entryP3Burst->GetValue().ToLong(&valP3Burst)
 		&& entryP3Arriv->GetValue().ToLong(&valP3Arriv)
-		&& valP3Arriv >= 0 && valP3Burst >= 0
+		&& valP3Arriv >= 0 && valP3Burst > 0
 
 		&& entryP4Burst->GetValue().ToLong(&valP4Burst)
 		&& entryP4Arriv->GetValue().ToLong(&valP4Arriv)
-		&& valP4Arriv >= 0 && valP4Burst >= 0) {
+		&& valP4Arriv >= 0 && valP4Burst > 0) {
 
 		buttonStart->Enable(false);
 		txLog->Clear();
@@ -326,7 +326,8 @@ std::string frameMain::getCurrentTime() {
 	auto now_time_t = std::chrono::system_clock::to_time_t(now);
 	std::tm* local_time = std::localtime(&now_time_t);
 
-	return "  " + std::to_string(local_time->tm_hour) + ":" + std::to_string(local_time->tm_min) + ":" + std::to_string(local_time->tm_sec) + ":\n";
+	return wxString::Format("%02d:%02d:%02d\n", local_time->tm_hour, local_time->tm_min, local_time->tm_sec).ToStdString();
+	//return "  " + std::to_string(local_time->tm_hour) + ":" + std::to_string(local_time->tm_min) + ":" + std::to_string(local_time->tm_sec) + ":\n";
 }
 
 void frameMain::logAppend(const char* str)
