@@ -55,8 +55,9 @@ private:
 	wxTimer gaugeTimer;
 	int milisecElapse = 0;
 	long totalTime;
-	std::vector<int> waitTime = { -1, -1, -1, -1 };
-	std::vector<int> turnTime = { -1, -1, -1, -1 };
+	std::vector<int> waitTime = {0, 0, 0, 0};
+	std::vector<int> turnTime = {0, 0, 0, 0};
+	int procRan = 0;
 
 	// Events
 	void startSim(wxCommandEvent& event);

@@ -1,15 +1,7 @@
 #include "frameMain.h"
 
 frameMain::frameMain() : 
-	wxFrame(nullptr, wxID_ANY, "SJF Demo", wxDefaultPosition, wxDefaultSize){
-
-	/*wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
-
-	wxButton* testbutton = new wxButton(this, wxID_ANY, "Test", wxPoint(100, 100), wxSize(150, 30));
-
-	mainSizer->Add(testbutton, 0, wxALL, FromDIP(5));
-
-	SetSizer(mainSizer);*/
+	wxFrame(nullptr, wxID_ANY, "SJF Demo", wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE & ~(wxRESIZE_BORDER | wxMAXIMIZE_BOX)){
 
 	wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -101,7 +93,7 @@ frameMain::frameMain() :
 	buttonViewResult = new wxButton(this, wxID_ANY, "View result", wxDefaultPosition, wxSize(1, 50));
 	buttonViewResult->SetFont(defaultFont);
 	buttonViewResult->Bind(wxEVT_BUTTON, [this] (wxCommandEvent&){
-		(new frameResult(waitTime, turnTime, this))->Show();
+		(new frameResult(waitTime, turnTime, procRan, this))->Show();
 		});
 
 	ctrlSizer->Add(buttonViewResult, 0, wxEXPAND | wxALL, FromDIP(5));
@@ -116,7 +108,6 @@ frameMain::frameMain() :
 
 	// Info and Log
 	wxBoxSizer* infoSizer = new wxBoxSizer(wxVERTICAL);
-	// Info panels
 
 	// Time gauge
 	labelTElapse = new wxStaticText(this, wxID_ANY, "Press start to start simulation",
@@ -166,19 +157,19 @@ void frameMain::startSim(wxCommandEvent& event)
 
 	if (entryP1Burst->GetValue().ToLong(&valP1Burst)
 		&& entryP1Arriv->GetValue().ToLong(&valP1Arriv)
-		&& valP1Arriv >= 0 && valP1Burst > 0
+		&& valP1Arriv >= 0 && valP1Burst >= 0
 
 		&& entryP2Burst->GetValue().ToLong(&valP2Burst)
 		&& entryP2Arriv->GetValue().ToLong(&valP2Arriv)
-		&& valP2Arriv >= 0 && valP2Burst > 0
+		&& valP2Arriv >= 0 && valP2Burst >= 0
 
 		&& entryP3Burst->GetValue().ToLong(&valP3Burst)
 		&& entryP3Arriv->GetValue().ToLong(&valP3Arriv)
-		&& valP3Arriv >= 0 && valP3Burst > 0
+		&& valP3Arriv >= 0 && valP3Burst >= 0
 
 		&& entryP4Burst->GetValue().ToLong(&valP4Burst)
 		&& entryP4Arriv->GetValue().ToLong(&valP4Arriv)
-		&& valP4Arriv >= 0 && valP4Burst > 0) {
+		&& valP4Arriv >= 0 && valP4Burst >= 0) {
 
 		buttonStart->Enable(false);
 		txLog->Clear();
@@ -201,10 +192,17 @@ void frameMain::startSim(wxCommandEvent& event)
 		
 		int procEnded = 0;
 		int procInQueue = 0;
+		procRan = 0;
+
 		while (procEnded < 4) {
 			for (int i = 0; i < processes.size(); i++) {
 				if (currentTime == processes.at(i).start) {
-					procQueue.push_back(&processes.at(i));
+					if (processes.at(i).duration) {
+						procQueue.push_back(&processes.at(i));
+						processes.at(i).firstArrTime = currentTime;
+					}
+					else
+						procEnded++;
 				}
 			}
 			
@@ -219,11 +217,12 @@ void frameMain::startSim(wxCommandEvent& event)
 				turnTime[currentProc->ID - 1] = currentTime - currentProc->firstArrTime;
 				currentProc = nullptr;
 				procEnded++;
+				procRan++;
 			}
 			// If preemptive mode is enabled, try to swap process
 			if (checkPreemptive->GetValue() &&
 				!procQueue.empty() && currentProc &&
-				procQueue.back()->duration < (currentProc->start + currentProc->duration) - currentTime) {
+				procQueue.back()->duration <= (currentProc->start + currentProc->duration) - currentTime) {
 				Proc* fasterProc = procQueue.back();
 				procQueue.pop_back();
 
@@ -233,7 +232,6 @@ void frameMain::startSim(wxCommandEvent& event)
 
 				currentProc = fasterProc;
 				currentProc->start = currentTime;
-				if (currentProc->firstArrTime == -1) currentProc->firstArrTime = currentTime;
 				procEvent.push_back({ 1, currentProc->ID, currentTime });
 			}
 
@@ -242,7 +240,7 @@ void frameMain::startSim(wxCommandEvent& event)
 				currentProc = procQueue.back();
 				procQueue.pop_back();
 				currentProc->start = currentTime;
-				if (currentProc->firstArrTime == -1) currentProc->firstArrTime = currentTime;
+				
 				procEvent.push_back({ 1, currentProc->ID, currentTime});
 			}
 
@@ -308,14 +306,13 @@ void frameMain::onCompletion() {
 
 void frameMain::onTimerTick(wxTimerEvent& event)
 {
-	milisecElapse += 110; // why.
+	milisecElapse += 115; // why.
 
 	int gaugeVal = ((double)milisecElapse / (totalTime * 1000)) * 1000;
 
 	if (gaugeVal > 1000 || gaugeTime->GetValue() >= 1000) {
 		gaugeVal = 1000;
 		gaugeTimer.Stop();
-		//logAppend("Finished");
 	}
 					
 	gaugeTime->SetValue(gaugeVal);
@@ -327,7 +324,6 @@ std::string frameMain::getCurrentTime() {
 	std::tm* local_time = std::localtime(&now_time_t);
 
 	return wxString::Format("%02d:%02d:%02d\n", local_time->tm_hour, local_time->tm_min, local_time->tm_sec).ToStdString();
-	//return "  " + std::to_string(local_time->tm_hour) + ":" + std::to_string(local_time->tm_min) + ":" + std::to_string(local_time->tm_sec) + ":\n";
 }
 
 void frameMain::logAppend(const char* str)
